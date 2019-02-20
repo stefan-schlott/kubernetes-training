@@ -1,0 +1,21 @@
+- hosts: 127.0.0.1
+  connection: local
+  tasks:
+    - name: generate random encryption key
+      shell: "head -c 32 /dev/urandom | base64"
+      register: generated-encryption-key
+    - name: generate encryption-config.yaml
+      template:
+        src: templates/encryption-config/encryption-config.yaml.j2
+        dest: tmp/encryption-config/encryption-config.yaml
+        mode: 0644
+
+# distribute encryption config
+- hosts: masters
+  remote_user: ubuntu
+  become: true
+  tasks:
+    - name: copy encryption-config.yaml
+      synchronize:
+        src: tmp/encryption-config/encryption-config.yaml
+        dest: /home/ubuntu

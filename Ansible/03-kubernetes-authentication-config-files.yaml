@@ -1,0 +1,127 @@
+# dummy task to get facts from all nodes
+- hosts: all
+  name: Gather facts from all nodes
+  tasks: [ ]
+
+- hosts: 127.0.0.1
+  connection: local
+  tasks:
+    # generate Kubelet authentication configs
+    - name: configure cluster address and CA (kubelets)
+      command: kubectl config set-cluster kubernetes-the-hard-way \
+        --certificate-authority=tmp/tls/ca.crt \
+        --embed-certs=true \
+        --server=https://{{ vars['lb_private_dns'] }}:443 \
+        --kubeconfig=tmp/authentication-config/worker-{{ hostvars[item]['ansible_hostname'] }}.kubeconfig
+      loop: "{{ groups['agents'] }}"
+    - name: configure credentials, TLS client certs (kubelets)
+      command: kubectl config set-credentials system:node:worker-{{ hostvars[item]['ansible_hostname'] }} \
+        --client-certificate=tmp/tls/worker-{{ hostvars[item]['ansible_hostname'] }}/worker-{{ hostvars[item]['ansible_hostname'] }}.crt \
+        --client-key=tmp/tls/worker-{{ hostvars[item]['ansible_hostname'] }}/worker-{{ hostvars[item]['ansible_hostname'] }}.key  \
+        --embed-certs=true \
+        --kubeconfig=tmp/authentication-config/worker-{{ hostvars[item]['ansible_hostname'] }}.kubeconfig
+      loop: "{{ groups['agents'] }}"
+    - name: configure contexts (kubelets)
+      command: kubectl config set-context default \
+        --cluster=kubernetes-the-hard-way \
+        --user=system:node:worker-{{ hostvars[item]['ansible_hostname'] }} \
+        --kubeconfig=tmp/authentication-config/worker-{{ hostvars[item]['ansible_hostname'] }}.kubeconfig
+      loop: "{{ groups['agents'] }}"
+    - name: validate generated configs (kubelets)
+      command: kubectl config use-context default \
+        --kubeconfig=tmp/authentication-config/worker-{{ hostvars[item]['ansible_hostname'] }}.kubeconfig
+      loop: "{{ groups['agents'] }}"
+
+    # generate kube-proxy authentication config
+    - name: configure cluster address and CA (kube-proxy)
+      command: kubectl config set-cluster kubernetes-the-hard-way \
+        --certificate-authority=tmp/tls/ca.crt \
+        --embed-certs=true \
+        --server=https://{{ vars['lb_private_dns'] }}:443 \
+        --kubeconfig=tmp/authentication-config/kube-proxy.kubeconfig
+    - name: configure credentials, TLS client cert (kube-proxy)
+      command: kubectl config set-credentials system:kube-proxy \
+        --client-certificate=tmp/tls/kube-proxy/kube-proxy.crt \
+        --client-key=tmp/tls/kube-proxy/kube-proxy.key  \
+        --embed-certs=true \
+        --kubeconfig=tmp/authentication-config/kube-proxy.kubeconfig
+    - name: configure context (kube-proxy)
+      command: kubectl config set-context default \
+        --cluster=kubernetes-the-hard-way \
+        --user=system:kube-proxy \
+        --kubeconfig=tmp/authentication-config/kube-proxy.kubeconfig
+    - name: validate generated configs (kube-proxy)
+      command: kubectl config use-context default \
+        --kubeconfig=tmp/authentication-config/kube-proxy.kubeconfig
+
+    # generate admin authentication config
+    - name: configure cluster address and CA (admin)
+      command: kubectl config set-cluster kubernetes-the-hard-way \
+        --certificate-authority=tmp/tls/ca.crt \
+        --embed-certs=true \
+        --server=https://127.0.0.1:443 \
+        --kubeconfig=tmp/authentication-config/admin.kubeconfig
+    - name: configure credentials, TLS client cert (admin)
+      command: kubectl config set-credentials admin \
+        --client-certificate=tmp/tls/admin/admin.crt \
+        --client-key=tmp/tls/admin/admin.key  \
+        --embed-certs=true \
+        --kubeconfig=tmp/authentication-config/admin.kubeconfig
+    - name: configure context (admin)
+      command: kubectl config set-context default \
+        --cluster=kubernetes-the-hard-way \
+        --user=admin \
+        --kubeconfig=tmp/authentication-config/admin.kubeconfig
+    - name: validate generated configs (admin)
+      command: kubectl config use-context default \
+        --kubeconfig=tmp/authentication-config/admin.kubeconfig
+
+    # generate authentication config for kube-controller-manager and kube-scheduler
+    - name: configure cluster address and CA (kube-controller-manager, kube-scheduler)
+      command: kubectl config set-cluster kubernetes-the-hard-way \
+        --certificate-authority=tmp/tls/ca.crt \
+        --embed-certs=true \
+        --server=https://127.0.0.1:443 \
+        --kubeconfig=tmp/authentication-config/{{ item }}.kubeconfig
+      loop: [kube-controller-manager, kube-scheduler]
+    - name: configure credentials, TLS client cert (kube-controller-manager, kube-scheduler)
+      command: kubectl config set-credentials system:{{ item }} \
+        --client-certificate=tmp/tls/{{ item }}/{{ item }}.crt \
+        --client-key=tmp/tls/{{ item }}/{{ item }}.key  \
+        --embed-certs=true \
+        --kubeconfig=tmp/authentication-config/{{ item }}.kubeconfig
+      loop: [kube-controller-manager, kube-scheduler]
+    - name: configure context (kube-controller-manager, kube-scheduler)
+      command: kubectl config set-context default \
+        --cluster=kubernetes-the-hard-way \
+        --user=system:{{ item }} \
+        --kubeconfig=tmp/authentication-config/{{ item }}.kubeconfig
+      loop: [kube-controller-manager, kube-scheduler]
+    - name: validate generated configs (kube-controller-manager, kube-scheduler)
+      command: kubectl config use-context default \
+        --kubeconfig=tmp/authentication-config/{{ item }}.kubeconfig
+      loop: [kube-controller-manager, kube-scheduler]
+
+# distribute files
+- hosts: agents
+  remote_user: ubuntu
+  become: true
+  tasks:
+    - name: copy kube-proxy.kubeconfig to kubelets
+      synchronize:
+        src: tmp/authentication-config/kube-proxy.kubeconfig
+        dest: /home/ubuntu
+    - name: copy kubelet's kubeconfig to kubelets
+      synchronize:
+        src: tmp/authentication-config/worker-{{ ansible_hostname }}.kubeconfig
+        dest: /home/ubuntu
+
+- hosts: masters
+  remote_user: ubuntu
+  become: true
+  tasks:
+    - name: copy kubeconfig files for admin, kube-controller-manager, kube-scheduler
+      synchronize:
+        src: tmp/authentication-config/{{ item }}.kubeconfig
+        dest: /home/ubuntu
+      loop: [admin, kube-controller-manager, kube-scheduler]

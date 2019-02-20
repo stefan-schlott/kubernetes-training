@@ -1,0 +1,81 @@
+# dummy task to get facts from all nodes
+- hosts: all
+  name: Gather facts from all nodes
+  tasks: [ ]
+
+- hosts: 127.0.0.1
+  connection: local
+  tasks:
+    # generating CA stuff
+    - name: create CA key
+      command: openssl genrsa -out ca.key 2048
+      args:
+        chdir: tmp/tls
+    - name: generate CA certificate
+      command: openssl req -new -nodes -key ca.key -x509  -subj "/C=DE/ST=Berlin/L=Berlin/O=Stefan/CN=Kubernetes" -days 365 -out ca.crt
+      args:
+        chdir: tmp/tls
+
+    # provide custom CSR configs (e.g. mainly to provide SubjectAltNames for various certs)
+    - name: create subfolders
+      file:
+        path: tmp/tls/{{ item }}
+        state: directory
+      loop: [admin, kube-controller-manager, kube-proxy, kube-scheduler, kubernetes, service-account]
+    - name: generate csr.conf files
+      template:
+        src: templates/tls/{{ item }}.csr.conf.j2
+        dest: tmp/tls/{{ item }}/{{ item }}.csr.conf
+        mode: 0644
+      loop: [admin, kube-controller-manager, kube-proxy, kube-scheduler, kubernetes, service-account]
+    # generate key, CSRs + signing
+    - name: key, CSR, CERT for various users
+      command: scripts/openssl_key_csr_signing.sh "{{item}}"
+      loop: [admin, kube-controller-manager, kube-proxy, kube-scheduler, kubernetes, service-account]
+
+    # Kubelets
+    - name: create subfolder
+      file:
+        path: tmp/tls/worker-{{ hostvars[item]['ansible_hostname'] }}
+        state: directory
+      loop: "{{ groups['agents'] }}"
+    - name: generate csr.conf files for Kubelets
+      template:
+        src: templates/tls/kubelet.csr.conf.j2
+        dest: tmp/tls/worker-{{ hostvars[item]['ansible_hostname'] }}/worker-{{ hostvars[item]['ansible_hostname'] }}.csr.conf
+        mode: 0644
+      loop: "{{ groups['agents'] }}"
+    - name: generate key, CSR, CERT for kubelets
+      command: scripts/openssl_key_csr_signing.sh worker-{{ hostvars[item]['ansible_hostname'] }}
+      loop: "{{ groups['agents'] }}"
+
+- hosts: agents
+  remote_user: ubuntu
+  become: true
+  tasks:
+    - name: synchronize CA.crt to kubelets
+      synchronize:
+        src: tmp/tls/ca.crt
+        dest: /home/ubuntu/ca.crt
+    - name: synchronize kubelet keypairs to kubelets
+      synchronize:
+        src: tmp/tls/worker-{{ ansible_hostname }}/worker-{{ ansible_hostname }}.{{ item }}
+        dest: /home/ubuntu
+      loop: [key, crt]
+
+- hosts: masters
+  remote_user: ubuntu
+  become: true
+  tasks:
+    - name: synchronize CA cert and key to masters
+      synchronize:
+        src: tmp/tls/ca.{{ item }}
+        dest: /home/ubuntu
+      loop: [key, crt]
+    - name: copy kubernetes and service account stuff to masters
+      synchronize:
+        src: tmp/tls/{{ item[0] }}/{{ item[0] }}.{{ item[1] }}
+        dest: /home/ubuntu
+      with_nested:
+        - [kubernetes, service-account]
+        - [key, crt]

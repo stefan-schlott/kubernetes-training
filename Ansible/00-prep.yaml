@@ -1,0 +1,28 @@
+- hosts: 127.0.0.1
+  connection: local
+  tasks:
+    - name: remove temporary folder
+      file:
+        path: tmp
+        state: absent
+    - name: create temporary folders (empty)
+      file:
+        path: "{{ item }}"
+        state: directory
+      loop: [tmp, tmp/tls, tmp/authentication-config, tmp/encryption-config]
+#    - name: create temporary folder (empty) for TLS stuff
+#      file:
+#        path: tmp/tls
+#        state: directory
+#    - name: create temporary folder (empty) for authentication configs
+#      file:
+#        path: tmp/authentication-config
+#        state: directory
+#    - name: create temporary folder (empty) for encryption config
+#      file:
+#        path: tmp/encryption-config
+#        state: directory
+
+
+
+

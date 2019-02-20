@@ -1,0 +1,66 @@
+- hosts: masters
+  remote_user: ubuntu
+  become: true
+  tasks:
+  - name: set facts
+    set_fact:
+      etcd_cluster_string: "{{ lookup('template', './templates/etcd/etcd_cluster_string.j2') | replace('\n', '') }}"
+
+  - name: get etcd tar.gz
+    get_url:
+      url: https://github.com/coreos/etcd/releases/download/v3.3.9/etcd-v3.3.9-linux-amd64.tar.gz
+      dest: /home/ubuntu/etcd-v3.3.9-linux-amd64.tar.gz
+      mode: 0777
+
+  - name: unpack etcd binaries
+    unarchive:
+      src: /home/ubuntu/etcd-v3.3.9-linux-amd64.tar.gz
+      dest: /home/ubuntu
+      remote_src: yes
+
+  - name: copy etcd and etcdctl binaries to /usr/local/bin
+    copy:
+      src: "/home/ubuntu/etcd-v3.3.9-linux-amd64/{{ item }}"
+      dest: "/usr/local/bin/{{ item }}"
+      mode: 0744
+      remote_src: yes
+    loop: ["etcd","etcdctl"]
+
+  - name: create etcd folders
+    file:
+      path: "{{ item }}"
+      state: directory
+    loop: [/etc/etcd, /var/lib/etcd]
+
+  - name: copy SSL stuff to /etc/etcd
+    copy:
+      src: "{{ item }}"
+      dest: /etc/etcd
+      remote_src: yes
+    loop: [kubernetes.key, kubernetes.crt, ca.crt]
+
+  - name: show content of generated String
+    debug: var=etcd_cluster_string
+
+  - name: generate etcd.service
+    template:
+      src: templates/etcd/etcd.service.j2
+      dest: /etc/systemd/system/etcd.service
+      mode: 0644
+      owner: root
+      group: root
+
+  - name: start etcd server
+    command: "{{ item }}"
+    loop: ["sudo systemctl daemon-reload","sudo systemctl enable etcd","sudo systemctl restart etcd"]
+
+- hosts: masters
+  remote_user: ubuntu
+  become: true
+  tasks:
+  - name: verify etcd bootup
+    command: "sudo ETCDCTL_API=3 etcdctl member list \
+      --endpoints=https://127.0.0.1:2379 \
+      --cacert=/etc/etcd/ca.crt \
+      --cert=/etc/etcd/kubernetes.crt \
+      --key=/etc/etcd/kubernetes.key"
