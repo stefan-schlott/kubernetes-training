@@ -55,14 +55,14 @@ resource "aws_security_group" "any_access_internal" {
 
 # web access
 resource "aws_security_group" "https" {
-  name = "http-security-group"
+  name = "https-security-group"
   description = "A security group for the elb"
   vpc_id = "${aws_vpc.default.id}"
 
   # http access from anywhere
   ingress {
-    from_port = 443
-    to_port = 443
+    from_port = 6443
+    to_port = 6443
     protocol = "tcp"
     cidr_blocks = [
       "0.0.0.0/0"]
@@ -143,8 +143,8 @@ resource "aws_elb" "public-controller-elb" {
     "${aws_instance.master.*.id}"]
 
   listener {
-    lb_port = 443
-    instance_port = 443
+    lb_port = 6443
+    instance_port = 6443
     lb_protocol = "tcp"
     instance_protocol = "tcp"
   }
@@ -153,7 +153,7 @@ resource "aws_elb" "public-controller-elb" {
     healthy_threshold = 2
     unhealthy_threshold = 2
     timeout = 5
-    target = "TCP:443"
+    target = "TCP:6443"
     interval = 30
   }
 
@@ -176,8 +176,8 @@ resource "aws_elb" "private-controller-elb" {
     "${aws_instance.master.*.id}"]
 
   listener {
-    lb_port = 443
-    instance_port = 443
+    lb_port = 6443
+    instance_port = 6443
     lb_protocol = "tcp"
     instance_protocol = "tcp"
   }
@@ -186,7 +186,7 @@ resource "aws_elb" "private-controller-elb" {
     healthy_threshold = 2
     unhealthy_threshold = 2
     timeout = 5
-    target = "TCP:443"
+    target = "TCP:6443"
     interval = 30
   }
 
