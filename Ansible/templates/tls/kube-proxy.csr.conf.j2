@@ -6,10 +6,10 @@ req_extensions = req_ext
 distinguished_name = dn
 
 [ dn ]
-C = DE
-ST = Berlin
-L = Berlin
-O = sytem:node-proxier
+C = "DE"
+ST = "Berlin"
+L = "Berlin"
+O = "system:node-proxier"
 OU = "Kubernetes The Hard Way Stefan"
 CN = "system:kube-proxy"
 
@@ -17,7 +17,7 @@ CN = "system:kube-proxy"
 subjectAltName = @alt_names
 
 [ alt_names ]
-DNS.1 = kube-proxy
+DNS.1 = "kube-proxy"
 
 [ v3_ext ]
 authorityKeyIdentifier=keyid,issuer:always

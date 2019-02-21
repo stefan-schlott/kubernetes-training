@@ -1,0 +1,6 @@
+{% set controllers = [] %}
+{% for master in groups['masters'] %}
+
+{{ controllers.append("https://"+hostvars[master]['ansible_default_ipv4']['address']+":2379") }}
+{% endfor %}
+{{ (controllers|join(','))}}

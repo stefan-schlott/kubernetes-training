@@ -6,10 +6,10 @@ req_extensions = req_ext
 distinguished_name = dn
 
 [ dn ]
-C = DE
-ST = Berlin
-L = Berlin
-O = kubernetes
+C = "DE"
+ST = "Berlin"
+L = "Berlin"
+O = "kubernetes"
 OU = "Kubernetes The Hard Way Stefan"
 CN = "kube-api"
 
@@ -17,17 +17,18 @@ CN = "kube-api"
 subjectAltName = @alt_names
 
 [ alt_names ]
-DNS.1 = kubernetes
-DNS.2 = kubernetes.default
-DNS.3 = kubernetes.default.svc
-DNS.4 = kubernetes.default.svc.cluster
-DNS.5 = kubernetes.default.svc.cluster.local
-DNS.6 = {{ vars['lb_public_dns'] }}
-DNS.7 = {{ vars['lb_private_dns'] }}
+DNS.1 = "kubernetes"
+DNS.2 = "kubernetes.default"
+DNS.3 = "kubernetes.default.svc"
+DNS.4 = "kubernetes.default.svc.cluster"
+DNS.5 = "kubernetes.default.svc.cluster.local"
+DNS.6 = "{{ vars['lb_public_dns'] }}"
+DNS.7 = "{{ vars['lb_private_dns'] }}"
 
-IP.1 = 127.0.0.1
+IP.1 = "127.0.0.1"
+IP.2 = "10.32.0.1"
 {% for master in groups['masters'] %}
-IP.{{ loop.index + 1}} = {{ hostvars[master]['ansible_default_ipv4']['address'] }}
+IP.{{ loop.index + 2}} = "{{ hostvars[master]['ansible_default_ipv4']['address'] }}"
 {% endfor %}
 
 

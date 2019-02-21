@@ -1,0 +1,139 @@
+- hosts: masters
+  remote_user: ubuntu
+  become: true
+  tasks:
+    - name: set facts
+      set_fact:
+        etcd_cluster_string_for_kubernetes: "{{ lookup('template', './templates/kubernetes-system-configs/etcd_cluster_string_for_kubernetes.j2') | replace('\n', '') }}"
+
+    - name: create Kubernetes folders (config, /var/lib)
+      file:
+        path: "{{ item }}"
+        state: directory
+      loop: ["/etc/kubernetes/config","/var/lib/kubernetes"]
+
+    - name: get Kubernetes binaries
+      get_url:
+        url: "{{ item }}"
+        dest: /home/ubuntu/
+        mode: 0644
+      loop:
+        - "https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kube-apiserver"
+        - "https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kube-controller-manager"
+        - "https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kube-scheduler"
+        - "https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kubectl"
+
+    - name: copy Kubernetes binaries to /usr/local/bin
+      copy:
+        src: "/home/ubuntu/{{ item }}"
+        dest: "/usr/local/bin/{{ item }}"
+        mode: 0755
+        remote_src: yes
+      loop: ["kube-apiserver","kube-controller-manager","kube-scheduler","kubectl"]
+
+    # Kubernetes API-Server
+    - name: copy config and TLS stuff to /var/lib/kubernetes
+      copy:
+        src: "/home/ubuntu/{{ item }}"
+        dest: "/var/lib/kubernetes/{{ item }}"
+        mode: 0644
+        remote_src: yes
+      loop: ["ca.crt","ca.key","kubernetes.crt","kubernetes.key","service-account.crt","service-account.key","encryption-config.yaml"]
+
+    - name: generate kube-apiserver.service
+      template:
+        src: templates/kubernetes-system-configs/kube-apiserver.service.j2
+        dest: /etc/systemd/system/kube-apiserver.service
+        mode: 0644
+        owner: root
+        group: root
+
+    # Kubernetes Controller Manager
+    - name: copy config and TLS stuff to /var/lib/kubernetes
+      copy:
+        src: "/home/ubuntu/kube-controller-manager.kubeconfig"
+        dest: "/var/lib/kubernetes/kube-controller-manager.kubeconfig"
+        mode: 0644
+        remote_src: yes
+
+    - name: generate kube-controller-manager.service
+      template:
+        src: templates/kubernetes-system-configs/kube-controller-manager.service.j2
+        dest: /etc/systemd/system/kube-controller-manager.service
+        mode: 0644
+        owner: root
+        group: root
+
+    # Kubernetes Scheduler
+    - name: copy config and TLS stuff to /var/lib/kubernetes
+      copy:
+        src: "/home/ubuntu/kube-scheduler.kubeconfig"
+        dest: "/var/lib/kubernetes/kube-scheduler.kubeconfig"
+        mode: 0644
+        remote_src: yes
+
+    - name: generate kube-scheduler config yaml
+      template:
+        src: templates/kubernetes-system-configs/kube-scheduler.yaml.j2
+        dest: /etc/kubernetes/config/kube-scheduler.yaml
+        mode: 0644
+        owner: root
+        group: root
+
+    - name: generate kube-scheduler.service
+      template:
+        src: templates/kubernetes-system-configs/kube-scheduler.service.j2
+        dest: /etc/systemd/system/kube-scheduler.service
+        mode: 0644
+        owner: root
+        group: root
+
+    # start the services
+    - name: start the Kubernetes Controller services
+      command: "{{ item }}"
+      loop:
+        - "sudo systemctl daemon-reload"
+        - "sudo systemctl enable kube-apiserver kube-controller-manager kube-scheduler"
+        - "sudo systemctl restart kube-apiserver kube-controller-manager kube-scheduler"
+
+    # install and setup NGinx as healthcheck proxy (likely not needed with AWS ELB, because it can do healthchecks against TCP?)
+    - name: Install nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: generate NGinx config for healthcheck site
+      template:
+        src: templates/nginx/kubernetes.default.svc.cluster.local.j2
+        dest: /etc/nginx/sites-available/kubernetes.default.svc.cluster.local
+        mode: 0644
+        owner: root
+        group: root
+
+    - name: enable the NGinx healthcheck site
+      file:
+        src: /etc/nginx/sites-available/kubernetes.default.svc.cluster.local
+        dest: /etc/nginx/sites-enabled/kubernetes.default.svc.cluster.local
+        owner: root
+        group: root
+        state: link
+
+    - name: start NGinx
+      command: "{{ item }}"
+      loop:
+        - "sudo systemctl enable nginx"
+        - "sudo systemctl restart nginx"
+
+    - name: verify Kubernetes component statuses (internal, localhost)
+      command: "kubectl get componentstatuses --kubeconfig admin.kubeconfig"
+
+    - name: verify NGinx proxied healthcheck (internal, localhost)
+      command: "curl -H 'Host: kubernetes.default.svc.cluster.local' -i http://127.0.0.1/healthz"
+
+# verify external access via Public ELB
+- hosts: 127.0.0.1
+  connection: local
+  tasks:
+    - name: verify external API access
+      command: "curl --cacert tmp/tls/ca.crt https://{{ vars['lb_public_dns'] }}:6443/version"

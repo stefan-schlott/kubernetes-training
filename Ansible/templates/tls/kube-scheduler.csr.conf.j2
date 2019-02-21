@@ -6,10 +6,10 @@ req_extensions = req_ext
 distinguished_name = dn
 
 [ dn ]
-C = DE
-ST = Berlin
-L = Berlin
-O = sytem:kube-scheduler
+C = "DE"
+ST = "Berlin"
+L = "Berlin"
+O = "system:kube-scheduler"
 OU = "Kubernetes The Hard Way Stefan"
 CN = "system:kube-scheduler"
 
@@ -17,7 +17,7 @@ CN = "system:kube-scheduler"
 subjectAltName = @alt_names
 
 [ alt_names ]
-DNS.1 = kube-scheduler
+DNS.1 = "kube-scheduler"
 
 [ v3_ext ]
 authorityKeyIdentifier=keyid,issuer:always

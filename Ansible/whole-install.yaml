@@ -1,0 +1,25 @@
+- name: Preparation stuff
+  include: 00-prep.yaml
+
+- name: Install Kubectl on bootstrap server
+  include: 01-install-kubectl.yaml
+
+- name: Prepare the Crypto Stuff (OpenSSL) locally and ship it to the nodes
+  include: 02-crypto-stuff.yaml
+
+- name: Prepare the Kubeconfig files
+  include: 03-kubernetes-authentication-config-files.yaml
+
+- name: Prepare the Kubernetes encryption config
+  include: 04-kubernetes-encryption-config-files.yaml
+
+- name: Setup H/A ETCD Cluster
+  include: 05-etcd.yaml
+
+- name: Install Kubernetes Controllers
+  include: 06-kubernetes-controllers.yaml
+
+- name: Install Kubelets
+  include: 07-kubernetes-workers.yaml
+
+

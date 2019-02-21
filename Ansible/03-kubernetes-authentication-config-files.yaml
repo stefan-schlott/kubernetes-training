@@ -11,25 +11,25 @@
       command: kubectl config set-cluster kubernetes-the-hard-way \
         --certificate-authority=tmp/tls/ca.crt \
         --embed-certs=true \
-        --server=https://{{ vars['lb_private_dns'] }}:443 \
-        --kubeconfig=tmp/authentication-config/worker-{{ hostvars[item]['ansible_hostname'] }}.kubeconfig
+        --server=https://{{ vars['lb_private_dns'] }}:6443 \
+        --kubeconfig=tmp/authentication-config/{{ hostvars[item]['ansible_hostname'] }}.kubeconfig
       loop: "{{ groups['agents'] }}"
     - name: configure credentials, TLS client certs (kubelets)
-      command: kubectl config set-credentials system:node:worker-{{ hostvars[item]['ansible_hostname'] }} \
-        --client-certificate=tmp/tls/worker-{{ hostvars[item]['ansible_hostname'] }}/worker-{{ hostvars[item]['ansible_hostname'] }}.crt \
-        --client-key=tmp/tls/worker-{{ hostvars[item]['ansible_hostname'] }}/worker-{{ hostvars[item]['ansible_hostname'] }}.key  \
+      command: kubectl config set-credentials system:node:{{ hostvars[item]['ansible_hostname'] }} \
+        --client-certificate=tmp/tls/{{ hostvars[item]['ansible_hostname'] }}/{{ hostvars[item]['ansible_hostname'] }}.crt \
+        --client-key=tmp/tls/{{ hostvars[item]['ansible_hostname'] }}/{{ hostvars[item]['ansible_hostname'] }}.key  \
         --embed-certs=true \
-        --kubeconfig=tmp/authentication-config/worker-{{ hostvars[item]['ansible_hostname'] }}.kubeconfig
+        --kubeconfig=tmp/authentication-config/{{ hostvars[item]['ansible_hostname'] }}.kubeconfig
       loop: "{{ groups['agents'] }}"
     - name: configure contexts (kubelets)
       command: kubectl config set-context default \
         --cluster=kubernetes-the-hard-way \
-        --user=system:node:worker-{{ hostvars[item]['ansible_hostname'] }} \
-        --kubeconfig=tmp/authentication-config/worker-{{ hostvars[item]['ansible_hostname'] }}.kubeconfig
+        --user=system:node:{{ hostvars[item]['ansible_hostname'] }} \
+        --kubeconfig=tmp/authentication-config/{{ hostvars[item]['ansible_hostname'] }}.kubeconfig
       loop: "{{ groups['agents'] }}"
     - name: validate generated configs (kubelets)
       command: kubectl config use-context default \
-        --kubeconfig=tmp/authentication-config/worker-{{ hostvars[item]['ansible_hostname'] }}.kubeconfig
+        --kubeconfig=tmp/authentication-config/{{ hostvars[item]['ansible_hostname'] }}.kubeconfig
       loop: "{{ groups['agents'] }}"
 
     # generate kube-proxy authentication config
@@ -37,7 +37,7 @@
       command: kubectl config set-cluster kubernetes-the-hard-way \
         --certificate-authority=tmp/tls/ca.crt \
         --embed-certs=true \
-        --server=https://{{ vars['lb_private_dns'] }}:443 \
+        --server=https://{{ vars['lb_private_dns'] }}:6443 \
         --kubeconfig=tmp/authentication-config/kube-proxy.kubeconfig
     - name: configure credentials, TLS client cert (kube-proxy)
       command: kubectl config set-credentials system:kube-proxy \
@@ -59,7 +59,7 @@
       command: kubectl config set-cluster kubernetes-the-hard-way \
         --certificate-authority=tmp/tls/ca.crt \
         --embed-certs=true \
-        --server=https://127.0.0.1:443 \
+        --server=https://127.0.0.1:6443 \
         --kubeconfig=tmp/authentication-config/admin.kubeconfig
     - name: configure credentials, TLS client cert (admin)
       command: kubectl config set-credentials admin \
@@ -81,7 +81,7 @@
       command: kubectl config set-cluster kubernetes-the-hard-way \
         --certificate-authority=tmp/tls/ca.crt \
         --embed-certs=true \
-        --server=https://127.0.0.1:443 \
+        --server=https://127.0.0.1:6443 \
         --kubeconfig=tmp/authentication-config/{{ item }}.kubeconfig
       loop: [kube-controller-manager, kube-scheduler]
     - name: configure credentials, TLS client cert (kube-controller-manager, kube-scheduler)
@@ -113,7 +113,7 @@
         dest: /home/ubuntu
     - name: copy kubelet's kubeconfig to kubelets
       synchronize:
-        src: tmp/authentication-config/worker-{{ ansible_hostname }}.kubeconfig
+        src: tmp/authentication-config/{{ ansible_hostname }}.kubeconfig
         dest: /home/ubuntu
 
 - hosts: masters
