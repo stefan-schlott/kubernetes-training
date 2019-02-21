@@ -3,10 +3,6 @@
 all:
   vars:
     ansible_python_interpreter: '/usr/bin/python3'
-    agent_private_ips:
-      ${agent_private_ips}
-    master_private_ips:
-      ${master_private_ips}
     lb_public_dns:
       '${lb_public_dns}'
     lb_private_dns:

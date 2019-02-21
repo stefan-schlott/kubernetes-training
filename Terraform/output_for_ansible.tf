@@ -23,8 +23,8 @@ data "template_file" "ansible_inventory" {
   template = "${file("templates/ansible_inventory_yaml.tpl")}"
 
   vars {
-    agent_private_ips="${jsonencode(aws_instance.agent.*.private_ip)}"
-    master_private_ips="${jsonencode(aws_instance.master.*.private_ip)}"
+//    agent_private_ips="${jsonencode(aws_instance.agent.*.private_ip)}"
+//    master_private_ips="${jsonencode(aws_instance.master.*.private_ip)}"
 
     lb_public_dns="${aws_elb.public-controller-elb.dns_name}"
     lb_private_dns="${aws_elb.private-controller-elb.dns_name}"
