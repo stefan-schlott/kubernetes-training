@@ -102,6 +102,28 @@
         --kubeconfig=tmp/authentication-config/{{ item }}.kubeconfig
       loop: [kube-controller-manager, kube-scheduler]
 
+    # generate admin config for remote access (via Public ELB)
+    - name: configure cluster address and CA (admin-public)
+      command: "kubectl config set-cluster kubernetes-the-hard-way \
+        --certificate-authority=tmp/tls/ca.crt \
+        --embed-certs=true \
+        --server=https://{{ vars['lb_public_dns'] }}:6443 \
+        --kubeconfig=tmp/authentication-config/admin-public.kubeconfig"
+    - name: configure credentials, TLS client cert (admin-public)
+      command: kubectl config set-credentials admin \
+        --client-certificate=tmp/tls/admin/admin.crt \
+        --client-key=tmp/tls/admin/admin.key  \
+        --embed-certs=true \
+        --kubeconfig=tmp/authentication-config/admin-public.kubeconfig
+    - name: configure context (admin-public)
+      command: kubectl config set-context default \
+        --cluster=kubernetes-the-hard-way \
+        --user=admin \
+        --kubeconfig=tmp/authentication-config/admin-public.kubeconfig
+    - name: validate generated configs (admin-public)
+      command: kubectl config use-context default \
+        --kubeconfig=tmp/authentication-config/admin-public.kubeconfig
+
 # distribute files
 - hosts: agents
   remote_user: ubuntu

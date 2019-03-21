@@ -17,8 +17,10 @@ variable "ssh_user" {
 
 variable "aws_ami" {
   description = "Overwrites the existing ami managed by tested oses module. Requires that the AMI already meets the prerequisites."
-  # Ubuntu 16.04LTS, HVM:EBS, US-WEST-2 (as of 20190124)
-  default = "ami-70e90210"
+  # Ubuntu 16.04LTS, HVM:EBS, US-WEST-2 (as of 20190124) - m4 instance types
+  #default = "ami-70e90210"
+  # Ubuntu 16.04LTS (as of 20190313) - m5 instance types
+  default = "ami-0f2016003e1759f35"
 }
 
 variable "aws_region" {

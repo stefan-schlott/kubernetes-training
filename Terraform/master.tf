@@ -135,6 +135,9 @@ resource "aws_instance" "master" {
 
   ebs_optimized  = "true"
 
+  # fixed / computed private ip - matching "Kubernetes the hard way" (masters .- 10.240.0.1x)
+  private_ip = "10.240.0.1${count.index}"
+
   tags {
    owner = "${var.owner}"
    expiration = "${var.expiration}"

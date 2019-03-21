@@ -4,7 +4,7 @@ resource "aws_vpc" "default" {
   enable_dns_hostnames = "true"
 
   tags {
-    Name = "${var.owner}"
+    Name = "Kubernetes-The-Hard-Way-${var.owner}"
   }
 }
 
@@ -18,6 +18,15 @@ resource "aws_route" "internet_access" {
   route_table_id = "${aws_vpc.default.main_route_table_id}"
   destination_cidr_block = "0.0.0.0/0"
   gateway_id = "${aws_internet_gateway.default.id}"
+}
+
+# map CNI local host routes - https://github.com/kelseyhightower/kubernetes-the-hard-way/blob/master/docs/11-pod-network-routes.md
+resource "aws_route" "inner_cluster_pod_access" {
+  count = "${var.num_of_private_agents}"
+
+  route_table_id = "${aws_vpc.default.main_route_table_id}"
+  destination_cidr_block = "10.200.${count.index}.0/24"
+  instance_id = "${element(aws_instance.agent.*.id, count.index)}"
 }
 
 

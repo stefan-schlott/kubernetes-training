@@ -1,6 +1,8 @@
 - hosts: masters
   remote_user: ubuntu
   become: true
+  vars_files:
+    - vars/variables.yaml
   tasks:
   - name: set facts
     set_fact:
@@ -8,19 +10,19 @@
 
   - name: get etcd tar.gz
     get_url:
-      url: https://github.com/coreos/etcd/releases/download/v3.3.9/etcd-v3.3.9-linux-amd64.tar.gz
-      dest: /home/ubuntu/etcd-v3.3.9-linux-amd64.tar.gz
+      url: "{{ etcd_URL }}"
+      dest: "/home/ubuntu/{{ etcd_folder_name }}.tar.gz"
       mode: 0777
 
   - name: unpack etcd binaries
     unarchive:
-      src: /home/ubuntu/etcd-v3.3.9-linux-amd64.tar.gz
-      dest: /home/ubuntu
+      src: "/home/ubuntu/{{ etcd_folder_name }}.tar.gz"
+      dest: "/home/ubuntu"
       remote_src: yes
 
   - name: copy etcd and etcdctl binaries to /usr/local/bin
     copy:
-      src: "/home/ubuntu/etcd-v3.3.9-linux-amd64/{{ item }}"
+      src: "/home/ubuntu/{{ etcd_folder_name }}/{{ item }}"
       dest: "/usr/local/bin/{{ item }}"
       mode: 0744
       remote_src: yes

@@ -21,6 +21,8 @@ resource "aws_instance" "agent" {
 
   ebs_optimized = "true"
 
+    # fixed / computed private ip - matching "Kubernetes the hard way" (workers/agents .- 10.240.0.2x)
+  private_ip = "10.240.0.2${count.index}"
 
   ###### Block devices
 

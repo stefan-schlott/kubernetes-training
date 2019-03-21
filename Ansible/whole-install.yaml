@@ -22,4 +22,5 @@
 - name: Install Kubelets
   include: 07-kubernetes-workers.yaml
 
-
+- name: Install CoreDNS
+  include: 08-CoreDNS.yaml

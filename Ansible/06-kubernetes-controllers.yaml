@@ -1,6 +1,8 @@
 - hosts: masters
   remote_user: ubuntu
   become: true
+  vars_files:
+    - vars/variables.yaml
   tasks:
     - name: set facts
       set_fact:
@@ -18,10 +20,10 @@
         dest: /home/ubuntu/
         mode: 0644
       loop:
-        - "https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kube-apiserver"
-        - "https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kube-controller-manager"
-        - "https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kube-scheduler"
-        - "https://storage.googleapis.com/kubernetes-release/release/v1.12.0/bin/linux/amd64/kubectl"
+        - "{{ kube_api_server_URL }}"
+        - "{{ kube_controller_manager_URL }}"
+        - "{{ kube_scheduler_URL }}"
+        - "{{ kubectl_URL }}"
 
     - name: copy Kubernetes binaries to /usr/local/bin
       copy:
@@ -131,9 +133,17 @@
     - name: verify NGinx proxied healthcheck (internal, localhost)
       command: "curl -H 'Host: kubernetes.default.svc.cluster.local' -i http://127.0.0.1/healthz"
 
+
 # verify external access via Public ELB
 - hosts: 127.0.0.1
   connection: local
   tasks:
     - name: verify external API access
       command: "curl --cacert tmp/tls/ca.crt https://{{ vars['lb_public_dns'] }}:6443/version"
+
+    # RBAC stuff
+    - name: apply ClusterRole and ClusterRoleBinding
+      command: "{{ item }}"
+      loop:
+        - "kubectl apply --kubeconfig tmp/authentication-config/admin-public.kubeconfig -f templates/RBAC/clusterrole-kube-apiserver-to-kubelet.j2"
+        - "kubectl apply --kubeconfig tmp/authentication-config/admin-public.kubeconfig -f templates/RBAC/clusterrolebinding-kube-apiserver-to-kubelet.j2"
