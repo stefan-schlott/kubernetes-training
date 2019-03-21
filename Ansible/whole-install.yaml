@@ -24,3 +24,6 @@
 
 - name: Install CoreDNS
   include: 08-CoreDNS.yaml
+
+- name: Install WebConsole (+Setup)
+  include: 09-prepare-webconsole-setup.yaml

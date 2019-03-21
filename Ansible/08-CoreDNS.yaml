@@ -6,28 +6,38 @@
   tasks:
     # destroy existing CoreDNS pods when they exist (to make it more idempotent)
     - name: delete, if exist (ignore, if not exist)
-      command: "{{ item }}"
-      loop:
-        - "kubectl --kubeconfig tmp/authentication-config/admin-public.kubeconfig delete -f {{ coredns_install_yaml_URL }} --ignore-not-found=true --all"
-
-    - name: delete test busybox, if exists
-      command: "kubectl --kubeconfig tmp/authentication-config/admin-public.kubeconfig delete deployment busybox --ignore-not-found=true"
-
-    - name: wait some time for Kubernetes to clean up
-      command: "sleep 20"
-
-
-
-    # install CoreDNS Add-On to the cluster
-    - name: apply ClusterRole and ClusterRoleBinding
-      command: "kubectl --kubeconfig tmp/authentication-config/admin-public.kubeconfig apply -f {{ coredns_install_yaml_URL }}"
-
-    - name: get the CoreDNS pods
-      command: "kubectl --kubeconfig tmp/authentication-config/admin-public.kubeconfig get pods -l k8s-app=kube-dns -n kube-system"
-
-    - name: verification of the installed DNS
       shell: "{{ item }}"
       loop:
-        - "kubectl --kubeconfig tmp/authentication-config/admin-public.kubeconfig run busybox --image=busybox:1.28 --command -- sleep 3600"
-        - "kubectl --kubeconfig tmp/authentication-config/admin-public.kubeconfig get pods -l run=busybox"
-        - "kubectl --kubeconfig tmp/authentication-config/admin-public.kubeconfig exec -ti $(kubectl --kubeconfig tmp/authentication-config/admin-public.kubeconfig get pods -l run=busybox -o jsonpath='{.items[0].metadata.name}') -- nslookup kubernetes"
+        - "kubectl --kubeconfig tmp/authentication-config/admin-public.kubeconfig delete -f {{ coredns_install_yaml_URL }} --ignore-not-found=true --all --wait=true --grace-period=0 --force=true"
+
+    - name: delete test busybox, if exists
+      shell: "kubectl --kubeconfig tmp/authentication-config/admin-public.kubeconfig delete deployment busybox --ignore-not-found=true --wait=true"
+
+    - name: wait some time for Kubernetes to clean up
+      shell: "kubectl --kubeconfig tmp/authentication-config/admin-public.kubeconfig describe svc -n kube-system -l k8s-app=kube-dns | grep 10.32.0.10"
+      register: result
+      failed_when: result.rc != 0 and result.rc != 1
+      retries: 3
+      delay: 10
+      until: result.rc == 1
+
+    # install CoreDNS Add-On to the cluster
+    - name: install CoreDNS stack + run test Busybox + wait a couple of seconds
+      shell:  "{{ item }}"
+      loop:
+        - "kubectl --kubeconfig tmp/authentication-config/admin-public.kubeconfig apply -f {{ coredns_install_yaml_URL }}"
+        - "kubectl --kubeconfig tmp/authentication-config/admin-public.kubeconfig get pods -l k8s-app=kube-dns -n kube-system"
+
+    - name: run busybox for validation
+      shell: "kubectl --kubeconfig tmp/authentication-config/admin-public.kubeconfig run busybox --image=busybox:1.28 --command -- sleep 3600"
+
+    - name: wait for busybox to be up and running
+      shell: "kubectl --kubeconfig tmp/authentication-config/admin-public.kubeconfig get pods | grep busybox | grep -i running"
+      register: result
+      failed_when: result.rc != 0 and result.rc != 1
+      retries: 3
+      delay: 10
+      until: result.rc == 0
+
+    - name: verification of the installed DNS
+      shell: "kubectl --kubeconfig tmp/authentication-config/admin-public.kubeconfig exec -ti $(kubectl --kubeconfig tmp/authentication-config/admin-public.kubeconfig get pods -l run=busybox -o jsonpath='{.items[0].metadata.name}') -- nslookup kubernetes"

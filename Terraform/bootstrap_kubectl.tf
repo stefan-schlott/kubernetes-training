@@ -31,7 +31,7 @@ resource "aws_instance" "bootstrap_kubectl" {
   key_name = "${var.ssh_key_name}"
 
   # Our Security group to allow http, SSH, and outbound internet access only for pulling containers from the web
-  vpc_security_group_ids = ["${aws_security_group.https.id}", "${aws_security_group.any_access_internal.id}", "${aws_security_group.ssh.id}", "${aws_security_group.internet-outbound.id}","${aws_security_group.icmp.id}"]
+  vpc_security_group_ids = ["${aws_security_group.https.id}", "${aws_security_group.webconsole.id}","${aws_security_group.any_access_internal.id}", "${aws_security_group.ssh.id}", "${aws_security_group.internet-outbound.id}","${aws_security_group.icmp.id}"]
 
   # We're going to launch into the same subnet as our ELB. In a production
   # environment it's more common to have a separate private subnet for

@@ -1,0 +1,11 @@
+[Unit]
+Description=GateOne WebConsole
+Documentation=https://github.com/liftoff/GateOne
+
+[Service]
+ExecStart=/usr/local/bin/gateone
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

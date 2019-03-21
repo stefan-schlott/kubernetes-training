@@ -87,6 +87,31 @@ resource "aws_security_group" "https" {
   }
 }
 
+# web console access (GateOne)
+resource "aws_security_group" "webconsole" {
+  name = "webconsole-security-group"
+  description = "A security group for the elb"
+  vpc_id = "${aws_vpc.default.id}"
+
+  # http access from anywhere
+  ingress {
+    from_port = 443
+    to_port = 443
+    protocol = "tcp"
+    cidr_blocks = [
+      "0.0.0.0/0"]
+  }
+
+  # outbound internet access
+  egress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+    cidr_blocks = [
+      "0.0.0.0/0"]
+  }
+}
+
 # A security group for SSH only access
 resource "aws_security_group" "ssh" {
   name = "ssh-security-group"

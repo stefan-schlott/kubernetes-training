@@ -32,3 +32,95 @@
         user: ubuntu
         state: present
         key: "{{ lookup('file', 'tmp/ssh/webconsole_keypair.pub') }}"
+
+# install and launch the gateone python process
+# input from https://github.com/liftoff/GateOne/blob/master/docker/Dockerfile
+- hosts: bootstrap
+  remote_user: ubuntu
+  become: true
+  tasks:
+    - name: install apt package dependencies
+      apt:
+        name: "{{ packages }}"
+        update_cache: yes
+      vars:
+        packages:
+          - python-pip
+          - python-imaging
+          - python-setuptools
+          - python-virtualenv
+          - python-mutagen
+          - python-pam
+          - python-dev
+          - git
+          - telnet
+          - openssh-client
+
+    - name: install pip dependencies
+      pip:
+        executable: pip
+        name:
+          - futures
+          - tornado==4.5.3
+          - cssmin
+          - slimit
+          - psutil
+
+    - name: create folders
+      file:
+        path: "{{ item }}"
+        state: directory
+      loop: [/gateone/logs, /gateone/users, /etc/gateone/conf.d, /etc/gateone/ssl]
+
+    - name: checkout GateOne github repo
+      git:
+        repo: "https://github.com/liftoff/GateOne.git"
+        dest: "/gateone/GateOne"
+
+    - name: install GateOne
+      command: "python setup.py install"
+      args:
+        chdir: "/gateone/GateOne"
+
+    - name: prep commands
+      command: "{{ item }}"
+      loop:
+        - /usr/local/bin/gateone --configure --log_file_prefix="/gateone/logs/gateone.log"
+        - rm -f /etc/gateone/ssl/key.pem
+        - rm -f /etc/gateone/ssl/certificate.pem
+
+    - name: install gateone systemd unit
+      template:
+        src: templates/webconsole/gateone.service.j2
+        dest: /etc/systemd/system/gateone.service
+        mode: 0644
+        owner: root
+        group: root
+
+    # password test1234
+    # https://docs.ansible.com/ansible/latest/reference_appendices/faq.html#how-do-i-generate-crypted-passwords-for-the-user-module
+    - name: set password for user ubuntu
+      user:
+        name: ubuntu
+        password: "$6$grO/hMVz$yaBktYOL4gNfq5XT0fgO5oWnIfH.rp7a.Kcj6XLGvPlvWZ.WpqRmHrKaxLtcHTgSLJQTcR8zf8yfxtx05QqOS."
+
+    - name: allow password auth for ubuntu user - ChallengeResponseAuthentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^ChallengeResponseAuthentication'
+        line: 'ChallengeResponseAuthentication yes'
+        backup: yes
+
+    - name: allow password auth for ubuntu user - PasswordAuthentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PasswordAuthentication'
+        line: 'PasswordAuthentication yes'
+        backup: yes
+
+    - name: launch gateone and restart OpenSSH server
+      command: "{{ item }}"
+      loop:
+        - "sudo systemctl daemon-reload"
+        - "sudo systemctl enable gateone"
+        - "sudo systemctl restart gateone ssh"
