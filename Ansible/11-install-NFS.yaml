@@ -1,0 +1,58 @@
+- hosts: masters
+  remote_user: ubuntu
+  become: true
+  vars_files:
+    - vars/variables.yaml
+  tasks:
+    - name: install prerequisite software
+      apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: yes
+      loop: [nfs-kernel-server]
+
+    - name: prepare folders
+      file:
+        path: "/opt/sfw"
+        state: directory
+        mode: 1777
+
+    - name: create test file in folder
+      copy:
+        dest: "/opt/sfw/hello.txt"
+        content: |
+          hello, software
+
+    - name: prepare /etc/exports
+      copy:
+        dest: "/etc/exports"
+        content: |
+          /opt/sfw/ *(rw,sync,no_root_squash,subtree_check)
+
+    - name: export exports
+      command: "exportfs -ra"
+
+- hosts: agents
+  remote_user: ubuntu
+  become: true
+  vars_files:
+    - vars/variables.yaml
+  tasks:
+    - name: install prerequisite software
+      apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: yes
+      loop: [nfs-common]
+
+    - name: check exported mounts from one master1 - 10.240.0.10
+      command: "showmount -e 10.240.0.10"
+
+    - name: locally mount the NFS share for testing
+      command: "mount 10.240.0.10:/opt/sfw /mnt"
+
+    - name: check if sth is there
+      command: "{{ item }}"
+      loop:
+        - "ls -l /mnt"
+        - "cat /mnt/hello.txt"
