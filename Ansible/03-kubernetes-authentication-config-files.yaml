@@ -147,3 +147,12 @@
         src: tmp/authentication-config/{{ item }}.kubeconfig
         dest: /home/ubuntu
       loop: [admin, kube-controller-manager, kube-scheduler]
+
+- hosts: bootstrap
+  remote_user: ubuntu
+  tasks:
+    - name: copy kubeconfig files for admin-public
+      synchronize:
+        src: tmp/authentication-config/admin-public.kubeconfig
+        dest: /home/ubuntu
+

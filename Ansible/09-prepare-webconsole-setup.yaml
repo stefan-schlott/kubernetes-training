@@ -10,14 +10,10 @@
   remote_user: ubuntu
   become: true
   tasks:
-    - name: upload private key
-      synchronize:
+    - name: upload private key and set permissions
+      copy:
         src: tmp/ssh/webconsole_keypair
-        dest: /home/ubuntu/.ssh
-
-    - name: change file permissions of private key file
-      file:
-        path: /home/ubuntu/.ssh/webconsole_keypair
+        dest: /home/ubuntu/.ssh/id_rsa
         owner: ubuntu
         group: ubuntu
         mode: 0600
@@ -82,7 +78,7 @@
       args:
         chdir: "/gateone/GateOne"
 
-    - name: prep commands
+    - name: preparation commands
       command: "{{ item }}"
       loop:
         - /usr/local/bin/gateone --configure --log_file_prefix="/gateone/logs/gateone.log"

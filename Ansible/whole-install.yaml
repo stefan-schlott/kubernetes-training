@@ -1,5 +1,5 @@
 - name: Preparation stuff
-  include: 00-prep.yaml
+  include: 00-preparation.yaml
 
 - name: Install Kubectl on bootstrap server
   include: 01-install-kubectl.yaml
